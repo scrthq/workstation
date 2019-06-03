@@ -3,15 +3,50 @@ Set-ExecutionPolicy Unrestricted
 Start-Job -RunAs32 { Set-ExecutionPolicy Unrestricted } | Receive-Job -Wait
 
 # Install the latest stable ChefDK
-Invoke-RestMethod 'https://omnitruck.chef.io/install.ps1' | Invoke-Expression
-install-project chefdk -verbose
+if ($null -eq (Get-Command chef-client*)) {
+    Invoke-RestMethod 'https://omnitruck.chef.io/install.ps1' | Invoke-Expression
+    Install-Project chefdk -verbose
+}
 
 # Install Chocolatey
-Invoke-Expression ((new-object net.webclient).DownloadString('https://chocolatey.org/install.ps1'))
-choco feature enable -n allowGlobalConfirmation
+if ($null -eq (Get-Command choco*)) {
+    Invoke-Expression ((new-object net.webclient).DownloadString('https://chocolatey.org/install.ps1'))
+    choco feature enable -n allowGlobalConfirmation
+}
 
+<#
 # Get a basic setup recipe
-invoke-restmethod 'https://gist.githubusercontent.com/smurawski/da67107b5efd00876af7bb0c8cfe8453/raw' | out-file -encoding ascii -filepath c:/basic.rb
+Invoke-RestMethod 'https://gist.githubusercontent.com/smurawski/da67107b5efd00876af7bb0c8cfe8453/raw' | Out-File -Encoding ASCII -Filepath C:\basic.rb
 
 # Use Chef Apply to setup
-chef-apply c:/basic.rb
+chef-apply C:\basic.rb
+#>
+
+#region: Manage $profile.CurrentUserAllHosts contents
+if (-not (Test-Path $profile.CurrentUserAllHosts)) {
+    &$log "Creating CurrentUserAllHosts file" "Profile" "Maint"
+    New-Item $profile.CurrentUserAllHosts -Force
+}
+$_pPath = [System.IO.Path]::Combine($PSScriptRoot,"PowerShell","Profile","profile.ps1")
+&$log "Updating CurrentUserAllHosts file contents" "Profile" "Maint"
+@"
+. '$_pPath'
+function Edit-CodeProfile {
+    [CmdletBinding()]
+    Param (
+        [parameter(Mandatory = `$false,Position = 0)]
+        [String[]]
+        `$Path = "$_pPath",
+        [parameter(Mandatory = `$false,Position = 1)]
+        [Switch]
+        `$Folder
+    )
+    if (`$Folder) {
+        code "$PSScriptRoot"
+    }
+    else {
+        code `$Path
+    }
+}
+"@ | Set-Content $profile.CurrentUserAllHosts -Force
+#endregion: Manage $profile.CurrentUserAllHosts contents

@@ -2,7 +2,7 @@ if ($PSVersionTable.PSVersion.Major -lt 6 -or $IsWindows) {
     $env:PYTHONIOENCODING = "UTF-8"
 }
 
-function Get-Gist {
+function global:Get-Gist {
     [CmdletBinding()]
     Param (
         [parameter(Mandatory,ValueFromPipeline,ValueFromPipelineByPropertyName,Position = 0)]
@@ -84,7 +84,7 @@ function Get-Gist {
     }
 }
 
-function Import-Splat {
+function global:Import-Splat {
     [CmdletBinding()]
     Param ()
     if ($null -eq (Get-Module EditorServicesCommandSuite* -ListAvailable)) {
@@ -105,7 +105,7 @@ function Import-Splat {
 
 Import-Splat
 
-function Set-ProcessPriority {
+function global:Set-ProcessPriority {
     [CmdletBinding()]
     Param ()
     DynamicParam {
@@ -161,7 +161,7 @@ function Set-ProcessPriority {
     }
 }
 
-function Update-GitAliases {
+function global:Update-GitAliases {
     if (Get-Command git) {
         $aliasList = @(
             "a = !git add . && git status"
@@ -205,7 +205,7 @@ function Update-GitAliases {
     }
 }
 
-function cln {
+function global:cln {
     [CmdletBinding()]
     Param (
         [parameter(Position = 0)]
@@ -239,7 +239,7 @@ function cln {
     }
 }
 
-function bld {
+function global:bld {
     [CmdletBinding(PositionalBinding = $false)]
     Param (
         [parameter()]
@@ -345,7 +345,7 @@ function bld {
     }
 }
 
-function push {
+function global:push {
     [CmdletBinding()]
     Param()
     DynamicParam {
@@ -395,7 +395,7 @@ function push {
         Push-Location $target
     }
 }
-function cadd {
+function global:cadd {
     [CmdletBinding()]
     Param()
     DynamicParam {
@@ -447,7 +447,7 @@ function cadd {
     }
 }
 
-function code {
+function global:code {
     [CmdletBinding(DefaultParameterSetName = 'Location')]
     Param (
         [parameter(ValueFromPipeline,ParameterSetName = 'InputObject')]
@@ -543,7 +543,7 @@ Register-ArgumentCompleter -Native -CommandName dotnet -ScriptBlock {
 }
 
 if (Test-Path "C:\Program Files (x86)\Devolutions\Remote Desktop Manager\RemoteDesktopManager.PowerShellModule.psd1") {
-    function Open-RDPSession {
+    function global:Open-RDPSession {
         [CmdletBinding()]
         Param (
             [parameter(Mandatory = $true,Position = 0,ValueFromPipeline = $true,ParameterSetName = "Name")]
