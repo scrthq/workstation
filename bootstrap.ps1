@@ -28,7 +28,6 @@ if (-not (Test-Path $profile.CurrentUserAllHosts)) {
     New-Item $profile.CurrentUserAllHosts -Force
 }
 $_pPath = [System.IO.Path]::Combine($PSScriptRoot,"PowerShell","Profile","profile.ps1")
-&$log "Updating CurrentUserAllHosts file contents" "Profile" "Maint"
 @"
 . '$_pPath'
 function Edit-CodeProfile {
