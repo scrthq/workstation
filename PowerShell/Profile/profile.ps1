@@ -20,17 +20,13 @@ $log = {
     Write-Host -ForegroundColor Cyan ("[L+{0:00}.{1:000}s] [T+{2:00}.{3:000}s] [{4}] [{5}] {6}" -f ([Math]::Floor($ls.TotalSeconds)),$ls.Milliseconds,([Math]::Floor($ts.TotalSeconds)),$ts.Milliseconds,"$Section".PadRight(10,'.'),"$Action".PadRight(9,'.'),$Message)
     $script:LastProfileCommandTime = Get-Date
 }
-$invoke = {
-    Param( $FileName )
-    . $FileName
-}
 #endregion: Add activity header and anonymous functions
 
 #region: Load CONFIG.ps1 to fill out $global:PSProfileConfig
 try {
     foreach ($configFile in (Get-ChildItem $PSScriptRoot -Filter "CONFIG*ps1" -ErrorAction Stop | Sort-Object {$_.BaseName.Length} -Descending)) {
         &$log ". .\$($configFile.Name)" "Script" "Invoke"
-        &$invoke $configFile.FullName
+        . $configFile.FullName
     }
 }
 catch {
@@ -166,8 +162,8 @@ $global:PSProfileConfig._internal['ProfileFiles'] = Get-ChildItem $PSScriptRoot 
     $_.Name -notmatch '^(WIP|profile.ps1|CONFIG)'
 }
 foreach ($file in $global:PSProfileConfig._internal['ProfileFiles']) {
-    &$log ". .\$($file.Name)" "Script" "Invoke"
-    &$invoke $file.FullName
+    &$log ". '$($file.FullName)'" "Script" "Invoke"
+    . $file.FullName
 }
 #endregion: Invoke additional profile scripts
 
