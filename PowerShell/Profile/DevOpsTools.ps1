@@ -2,6 +2,32 @@ if ($PSVersionTable.PSVersion.Major -lt 6 -or $IsWindows) {
     $env:PYTHONIOENCODING = "UTF-8"
 }
 
+function Get-PublicIp {
+    [CmdletBinding()]
+    Param (
+        [parameter(Position = 0,ValueFromPipeline,ValueFromPipelineByPropertyName)]
+        [Alias('Name','PSComputerName','HostName','Host','Computer')]
+        [string[]]
+        $ComputerName = @($env:COMPUTERNAME)
+    )
+    Begin {
+        $ScriptBlock = {
+            [PSCustomObject]@{
+                ComputerName = $env:COMPUTERNAME
+                PublicIp     = (Invoke-RestMethod 'https://api.ipify.org?format=json').Ip
+            }
+        }
+    }
+    Process {
+        if ($ComputerName -contains $env:COMPUTERNAME) {
+            $ScriptBlock.Invoke()
+        }
+        if ($others = $ComputerName | Where-Object {$_ -ne $env:COMPUTERNAME}) {
+            Invoke-Command -ComputerName $others -ScriptBlock $ScriptBlock | Select-Object ComputerName,PublicIp
+        }
+    }
+}
+
 function global:Get-Gist {
     [CmdletBinding()]
     Param (
