@@ -575,7 +575,7 @@ if (Test-Path "C:\Program Files (x86)\Devolutions\Remote Desktop Manager\RemoteD
             [parameter(Mandatory = $true,Position = 0,ValueFromPipeline = $true,ParameterSetName = "Name")]
             [String]
             $Name,
-            [parameter(Mandatory = $false,Position = 1,ParameterSetName = "Name")]
+            [parameter(Position = 1,ParameterSetName = "Name")]
             [Alias('Host')]
             [String]
             $ComputerName,

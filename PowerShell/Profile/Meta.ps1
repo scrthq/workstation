@@ -12,14 +12,7 @@ if ($null -eq (Get-Command open -ErrorAction SilentlyContinue)) {
 }
 
 function Invoke-Profile {
-    [CmdletBinding()]
-    Param (
-        [parameter(Mandatory = $false,Position = 0)]
-        [ValidateSet("Fast","Slim","Full","Demo","macOS",$null)]
-        [String]
-        $Level = $null
-    )
-    . $profile.CurrentUserAllHosts $Level
+    . $profile.CurrentUserAllHosts
 }
 
 function Disable-PoshGit {

@@ -124,7 +124,7 @@ foreach ($key in $global:PSProfileConfig.GitPaths.Keys) {
     $g = 0
     $b = 0
     if ($fullPath -notmatch '^\?\?\?' -and (Test-Path $fullPath)) {
-        Get-ChildItem $fullPath -Recurse -Filter '.git' -Directory -Force | ForEach-Object {
+        Get-ChildItem $fullPath -Recurse -Filter '.git' -Directory -Depth 4 -Force | ForEach-Object {
             $global:PSProfileConfig['_internal']['GitPathMap'][$_.Parent.BaseName] = $_.Parent.FullName
             $g++
             if (Test-Path (Join-Path $_.Parent.FullName "build.ps1")) {

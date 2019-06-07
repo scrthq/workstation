@@ -1,9 +1,9 @@
 function Start-Demo {
     param(
-        [parameter(Mandatory = $false, Position = 0)]
+        [parameter( Position = 0)]
         [string]
         $File = ".\demo.txt",
-        [parameter(Mandatory = $false, Position = 1)]
+        [parameter( Position = 1)]
         [int]
         $Command = 0
     )
