@@ -2,6 +2,200 @@ if ($PSVersionTable.PSVersion.Major -lt 6 -or $IsWindows) {
     $env:PYTHONIOENCODING = "UTF-8"
 }
 
+function Convert-Duration {
+    <#
+    .SYNOPSIS
+    Converts a TimeSpan or ISO8601 duration string to the desired output type.
+
+    .DESCRIPTION
+    Converts a TimeSpan or ISO8601 duration string to the desired output type.
+
+    More info on ISO8601 duration strings: https://en.wikipedia.org/wiki/ISO_8601#Durations
+
+    .PARAMETER Duration
+    The TimeSpan object or ISO8601 string to convert.
+
+    .PARAMETER Output
+    The desired Output type.
+
+    Defaults to TimeSpan.
+
+    .EXAMPLE
+    Convert-Duration 'PT1H32M15S'
+
+    Days              : 0
+    Hours             : 1
+    Minutes           : 32
+    Seconds           : 15
+    Milliseconds      : 0
+    Ticks             : 55350000000
+    TotalDays         : 0.0640625
+    TotalHours        : 1.5375
+    TotalMinutes      : 92.25
+    TotalSeconds      : 5535
+    TotalMilliseconds : 5535000
+
+    .EXAMPLE
+    Start-Sleep -Seconds (Convert-Duration 'PT5M35S' -Output TotalSeconds)
+
+    # Sleeps for 5 minutes and 35 seconds
+
+    .EXAMPLE
+    $date = Get-Date
+    $duration = $date.AddMinutes(37) - $date
+    Convert-Duration $duration -Output ISO8601
+
+    PT37M
+    #>
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory,ValueFromPipeline,Position = 0)]
+        [ValidateScript({
+            if ($_.GetType().Name -eq 'TimeSpan' -or $_ -match '^P((?<Years>[\d\.,]+)Y)?((?<Months>[\d\.,]+)M)?((?<Weeks>[\d\.,]+)W)?((?<Days>[\d\.,]+)D)?(?<Time>T((?<Hours>[\d\.,]+)H)?((?<Minutes>[\d\.,]+)M)?((?<Seconds>[\d\.,]+)S)?)?$') {
+                $true
+            }
+            else {
+                throw "Input object must be a valid ISO8601 format string or a TimeSpan object."
+            }
+        })]
+        [Object]
+        $Duration,
+        [Parameter(Position = 1)]
+        [ValidateSet('TimeSpan','ISO8601','Hashtable','TotalSeconds')]
+        [String]
+        $Output = 'TimeSpan'
+    )
+    Begin {
+        $validKeys = @('Years','Months','Weeks','Days','Hours','Minutes','Seconds')
+    }
+    Process {
+        switch ($Duration.GetType().Name) {
+            String {
+                if ($Duration -match '^P((?<Years>[\d\.,]+)Y)?((?<Months>[\d\.,]+)M)?((?<Weeks>[\d\.,]+)W)?((?<Days>[\d\.,]+)D)?(?<Time>T((?<Hours>[\d\.,]+)H)?((?<Minutes>[\d\.,]+)M)?((?<Seconds>[\d\.,]+)S)?)?$') {
+                    if ($Output -eq 'ISO8601') {
+                        $Duration
+                    }
+                    else {
+                        $final = @{}
+                        $d = Get-Date
+                        switch ($Output) {
+                            TotalSeconds {
+                                $seconds = 0
+                                foreach ($key in $Matches.Keys | Where-Object {$_ -in $validKeys}) {
+                                    Write-Verbose "Matched key '$key' with value '$($Matches[$key])'"
+                                    $multiplier = switch ($key) {
+                                        Years {
+                                            ($d.AddYears(1) - $d).TotalSeconds
+                                        }
+                                        Months {
+                                            ($d.AddMonths(1) - $d).TotalSeconds
+                                        }
+                                        Weeks {
+                                            ($d.AddDays(7) - $d).TotalSeconds
+                                        }
+                                        Days {
+                                            ($d.AddDays(1) - $d).TotalSeconds
+                                        }
+                                        Hours {
+                                            3600
+                                        }
+                                        Minutes {
+                                            60
+                                        }
+                                        Seconds {
+                                            1
+                                        }
+                                    }
+                                    $seconds += ($multiplier * [int]($Matches[$key]))
+                                }
+                                $seconds
+                            }
+                            TimeSpan {
+                                foreach ($key in $Matches.Keys | Where-Object {$_ -in $validKeys}) {
+                                    Write-Verbose "Matched key '$key' with value '$($Matches[$key])'"
+                                    if (-not $final.ContainsKey('Days')) {
+                                        $final['Days'] = 0
+                                    }
+                                    switch ($key) {
+                                        Years {
+                                            $final['Days'] += (($d.AddYears(1) - $d).TotalDays * [int]($Matches[$key]))
+                                        }
+                                        Months {
+                                            $final['Days'] += (($d.AddMonths(1) - $d).TotalDays * [int]($Matches[$key]))
+                                        }
+                                        Weeks {
+                                            $final['Days'] += (7 * [int]($Matches[$key]))
+                                        }
+                                        Days {
+                                            $final['Days'] += [int]($Matches[$key])
+                                        }
+                                        default {
+                                            $final[$key] = [int]($Matches[$key])
+                                        }
+                                    }
+                                    $final['Seconds'] += ($multiplier * [int]($Matches[$key]))
+                                }
+                                New-TimeSpan @final
+                            }
+                            Hashtable {
+                                foreach ($key in $Matches.Keys | Where-Object {$_ -in $validKeys}) {
+                                    Write-Verbose "Matched key '$key' with value '$($Matches[$key])'"
+                                    $final[$key] = [int]($Matches[$key])
+                                }
+                                $final
+                            }
+                        }
+                    }
+                }
+                else {
+                    Write-Error "Input string was not a valid ISO8601 format! Please reference the Duration section on the Wikipedia page for ISO8601 for syntax: https://en.wikipedia.org/wiki/ISO_8601#Durations"
+                }
+            }
+            TimeSpan {
+                if ($Output -eq 'TimeSpan') {
+                    $Duration
+                }
+                else {
+                    $final = @{}
+                    $d = Get-Date
+                    switch ($Output) {
+                        TotalSeconds {
+                            $Duration.TotalSeconds
+                        }
+                        Hashtable {
+                            foreach ($key in $validKeys) {
+                                if ($Duration.$key) {
+                                    $final[$key] = $Duration.$key
+                                }
+                            }
+                            $final
+                        }
+                        ISO8601 {
+                            $pt = 'P'
+                            if ($Duration.Days) {
+                                $pt += ("{0}D" -f $Duration.Days)
+                            }
+                            if ($Duration.Hours + $Duration.Minutes + $Duration.Seconds) {
+                                $pt += 'T'
+                                if ($Duration.Hours) {
+                                    $pt += ("{0}H" -f $Duration.Hours)
+                                }
+                                if ($Duration.Minutes) {
+                                    $pt += ("{0}M" -f $Duration.Minutes)
+                                }
+                                if ($Duration.Seconds) {
+                                    $pt += ("{0}S" -f $Duration.Seconds)
+                                }
+                            }
+                            $pt
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 function Get-PublicIp {
     [CmdletBinding()]
     Param (
