@@ -24,11 +24,11 @@ function global:Get-PSVersion {
         [parameter(Position = 0)]
         [AllowNull()]
         [int]
-        $Places
+        $Places = $global:PSProfileConfig.Settings.PSVersionStringLength
     )
     Process {
         $version = $PSVersionTable.PSVersion.ToString()
-        if ($PSBoundParameters.ContainsKey('Places') -and $null -ne $Places) {
+        if ($null -ne $Places) {
             $split = ($version -split '\.')[0..($Places - 1)]
             if ("$($split[-1])".Length -gt 1) {
                 $split[-1] = "$($split[-1])".Substring(0,1)
@@ -55,6 +55,7 @@ function global:Test-IfGit {
         try {
             $topLevel = git rev-parse --show-toplevel *>&1
             if ($topLevel -like 'fatal: *') {
+                $Global:Error.Remove($Global:Error[0])
                 $false
             }
             else {
@@ -242,7 +243,7 @@ function global:Switch-Prompt {
         }
         if (-not $NoGit) {
             Import-Module posh-git -Verbose:$false
-            $GitPromptSettings.EnableWindowTitle = "Repo Info:  "
+            $GitPromptSettings.EnableWindowTitle =  'PS {0} @' -f (Get-PSVersion)
         }
         $global:PreviousPrompt = if ($global:CurrentPrompt) {
             $global:CurrentPrompt
@@ -278,8 +279,12 @@ function global:Switch-Prompt {
                         Write-Host "] [" -NoNewline
                         Write-Host ("{0}" -f $(Get-PathAlias)) -NoNewline -ForegroundColor DarkYellow
                         Write-Host "]" -NoNewline
-                        if ($PWD.Path -notlike "G:\GDrive\GoogleApps*" -and $env:DisablePoshGit -ne $true -and $global:_useGit -and (git config -l --local *>&1) -notmatch '^fatal') {
+                        if ($PWD.Path -notlike "G:\GDrive\GoogleApps*" -and $env:DisablePoshGit -ne $true -and $global:_useGit -and (Test-IfGit)) {
                             Write-VcsStatus
+                            $GitPromptSettings.EnableWindowTitle =  'PS {0} @' -f (Get-PSVersion)
+                        }
+                        else {
+                            $Host.UI.RawUI.WindowTitle = 'PS {0}' -f (Get-PSVersion)
                         }
                         Write-Host "`n[" -NoNewLine
                         $verColor = @{
@@ -364,13 +369,15 @@ function global:Switch-Prompt {
                         Write-Host -ForegroundColor $idColor $ra -NoNewline
                         Write-Host @fg -BackgroundColor $verColor "$ra[$("PS {0}" -f (Get-PSVersion $global:PSProfileConfig.Settings.PSVersionStringLength))]" -NoNewline
                         Write-Host -ForegroundColor $verColor $ra -NoNewline
-                        if ($global:_useGit -and $PWD.Path -notlike "G:\GDrive\GoogleApps*" -and (git config -l --local *>&1) -notmatch '^fatal') {
+                        if ($global:_useGit -and $PWD.Path -notlike "G:\GDrive\GoogleApps*" -and (Test-IfGit) -notmatch '^fatal') {
                             Write-Host @fg -BackgroundColor Yellow "$ra[$(Get-Elapsed) @ $(Get-Date -Format T)]" -NoNewline
                             Write-Host -ForegroundColor Yellow $ra -NoNewline
                             Write-VcsStatus
                             Write-Host ""
+                            $GitPromptSettings.EnableWindowTitle =  'PS {0} @' -f (Get-PSVersion)
                         }
                         else {
+                            $Host.UI.RawUI.WindowTitle = 'PS {0}' -f (Get-PSVersion)
                             Write-Host @fg -BackgroundColor Yellow "$ra[$(Get-Elapsed) @ $(Get-Date -Format T)]" -NoNewline
                             Write-Host -ForegroundColor Yellow $ra
                         }
@@ -431,7 +438,7 @@ function global:Switch-Prompt {
                         $background = "$escape[48;5"
                         $prompt = ''
 
-                        $gitTest = $global:_useGit -and $PWD.Path -notlike "G:\GDrive\GoogleApps*" -and (git config -l --local *>&1) -notmatch '^fatal'
+                        $gitTest = $global:_useGit -and $PWD.Path -notlike "G:\GDrive\GoogleApps*" -and (Test-IfGit) -notmatch '^fatal'
                         if ($gitTest) {
                             $branch = git symbolic-ref --short -q HEAD
                             $aheadbehind = git status -sb
@@ -499,9 +506,13 @@ function global:Switch-Prompt {
                         Write-Host -ForegroundColor Cyan "[$(Get-PathAlias)] " -NoNewline
                         Write-Host "| Last: " -NoNewLine
                         Write-Host -ForegroundColor $lastColor "[$(Get-Elapsed)] " -NoNewline
-                        if ($global:_useGit -and $PWD.Path -notlike "G:\GDrive\GoogleApps*" -and (git config -l --local *>&1) -notmatch '^fatal') {
+                        if ($global:_useGit -and $PWD.Path -notlike "G:\GDrive\GoogleApps*" -and (Test-IfGit) -notmatch '^fatal') {
                             Write-Host "| Git:" -NoNewLine
                             Write-VcsStatus
+                            $GitPromptSettings.EnableWindowTitle =  'PS {0} @' -f (Get-PSVersion)
+                        }
+                        else {
+                            $Host.UI.RawUI.WindowTitle = 'PS {0}' -f (Get-PSVersion)
                         }
                         Write-Host "`nPS " -NoNewline
                         $verColor = if ($PSVersionTable.PSVersion.Major -lt 6) {

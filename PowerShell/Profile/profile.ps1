@@ -1,4 +1,5 @@
 #region: Add activity header and anonymous functions
+$Host.UI.RawUI.WindowTitle = 'PS {0}' -f ($PSVersionTable.PSVersion.ToString().Split('.',3).ForEach({"$_".Substring(0,1)}) -join ".")
 Write-Host -ForegroundColor Yellow "
 [LastTime.] [TotalTime] [Section...] [Action...] Log Message...
 ----------- ----------- ------------ ----------- ---------------------------------------------------------------------"
@@ -182,5 +183,7 @@ else {
     demo
 }
 #endregion: Set prompt
+
+$Global:Error.Clear()
 
 Write-Host ("Loading personal profile alone took {0}ms." -f ([Math]::Round(((Get-Date) - $global:PSProfileConfig._internal.ProfileLoadStart).TotalMilliseconds,0)))

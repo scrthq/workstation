@@ -2,6 +2,30 @@ if ($PSVersionTable.PSVersion.Major -lt 6 -or $IsWindows) {
     $env:PYTHONIOENCODING = "UTF-8"
 }
 
+function Test-ADCredential {
+    [CmdletBinding()]
+    Param(
+        [parameter(Mandatory,Position = 0)]
+        [string]
+        $UserName,
+        [parameter(Mandatory,Position = 1)]
+        [object]
+        $Password
+    )
+    $pw = if ($Password -is [SecureString]) {
+        (New-Object System.Management.Automation.PSCredential $UserName,$Password).GetNetworkCredential().Password
+    }
+    elseif ($Password -is [String]) {
+        $Password
+    }
+    else {
+        throw "Password supplied was neither a String or a SecureString! Unable to validate"
+    }
+    $CurrentDomain = "LDAP://" + ([ADSI]"").distinguishedName
+    $domain = New-Object System.DirectoryServices.DirectoryEntry($CurrentDomain,$UserName,$pw)
+    $null -ne $domain.name
+}
+
 function Convert-Duration {
     <#
     .SYNOPSIS
