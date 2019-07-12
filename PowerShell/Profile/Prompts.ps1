@@ -208,7 +208,7 @@ function global:Switch-Prompt {
     [CmdletBinding()]
     Param (
         [parameter(Position = 0,ValueFromPipeline)]
-        [ValidateSet('Basic','BasicPlus','Original','Clean','Fast','Demo','Slim','Rayner','Full','PowerLine')]
+        [ValidateSet('Basic','BasicPlus','Original','Clean','Fast','Demo','Slim','SlimDrop','Rayner','Full','PowerLine')]
         [String]
         $Prompt = 'Basic',
         [parameter()]
@@ -301,6 +301,51 @@ function global:Switch-Prompt {
                         Write-Host @verColor ("PS {0}" -f (Get-PSVersion $global:PSProfileConfig.Settings.PSVersionStringLength)) -NoNewline
                         Write-Host "]" -NoNewLine
                         $('>' * ($nestedPromptLevel + 1) + ' ')
+                    }
+                }
+                SlimDrop {
+                    <# Appearance:
+                    [#12] [0:00:00.0347] ~\Personal-Settings [master ≡ +3 ~3 -1 !]
+                    [PS 6.2]>
+                    #>
+                    function global:prompt {
+                        $lastStatus = $?
+                        $lastColor = if ($lastStatus -eq $true) {
+                            'Green'
+                        }
+                        else {
+                            "Red"
+                        }
+                        Write-Host "[" -NoNewline
+                        Write-Host -ForegroundColor Cyan "#$($MyInvocation.HistoryId)" -NoNewline
+                        Write-Host "] " -NoNewline
+                        Write-Host "[" -NoNewLine
+                        $verColor = @{
+                            ForegroundColor = if ($PSVersionTable.PSVersion.Major -eq 7) {
+                                'Yellow'
+                            }
+                            elseif ($PSVersionTable.PSVersion.Major -eq 6) {
+                                'Magenta'
+                            }
+                            else {
+                                'Cyan'
+                            }
+                        }
+                        Write-Host @verColor ("PS {0}" -f (Get-PSVersion $global:PSProfileConfig.Settings.PSVersionStringLength)) -NoNewline
+                        Write-Host "] " -NoNewline
+                        Write-Host "[" -NoNewline
+                        Write-Host -ForegroundColor $lastColor ("{0}" -f (Get-Elapsed)) -NoNewline
+                        Write-Host "] [" -NoNewline
+                        Write-Host ("{0}" -f $(Get-PathAlias)) -NoNewline -ForegroundColor DarkYellow
+                        Write-Host "]" -NoNewline
+                        if ($PWD.Path -notlike "G:\GDrive\GoogleApps*" -and $env:DisablePoshGit -ne $true -and $global:_useGit -and (Test-IfGit)) {
+                            Write-VcsStatus
+                            $GitPromptSettings.EnableWindowTitle =  'PS {0} @' -f (Get-PSVersion)
+                        }
+                        else {
+                            $Host.UI.RawUI.WindowTitle = 'PS {0}' -f (Get-PSVersion)
+                        }
+                        "`n>> "
                     }
                 }
                 Clean {

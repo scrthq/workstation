@@ -3,7 +3,7 @@ $global:PSProfileConfig = @{
         ProfileLoadStart = Get-Date
     }
     Settings        = @{
-        Prompt                = 'Slim'
+        Prompt                = 'SlimDrop'
         PSVersionStringLength = 3
     }
     Variables       = @{
