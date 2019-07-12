@@ -1,32 +1,37 @@
 #region: Add activity header and anonymous functions
 $Host.UI.RawUI.WindowTitle = 'PS {0}' -f ($PSVersionTable.PSVersion.ToString().Split('.',3).ForEach({"$_".Substring(0,1)}) -join ".")
-Write-Host -ForegroundColor Yellow "
-[LastTime.] [TotalTime] [Section...] [Action...] Log Message...
------------ ----------- ------------ ----------- ---------------------------------------------------------------------"
-$log = {
-    Param(
-        $Message,
-        $Section = "Info",
-        $Action = "Log",
-        $Start = $(if ($global:PSProfileConfig._internal.ProfileLoadStart){$global:PSProfileConfig._internal.ProfileLoadStart}else{Get-Date})
-    )
-    $now = Get-Date
-    $ls = if ($null -eq $script:LastProfileCommandTime) {
-        $now - $Start
+$logOutput = -not (Test-Path ([System.IO.Path]::Combine($PSScriptRoot,'SENSITIVE','nolog')))
+if ($logOutput) {
+    Write-Host -ForegroundColor Yellow "
+    [LastTime.] [TotalTime] [Section...] [Action...] Log Message...
+    ----------- ----------- ------------ ----------- ---------------------------------------------------------------------"
+    $log = {
+        Param(
+            $Message,
+            $Section = "Info",
+            $Action = "Log",
+            $Start = $(if ($global:PSProfileConfig._internal.ProfileLoadStart){$global:PSProfileConfig._internal.ProfileLoadStart}else{Get-Date})
+        )
+        $now = Get-Date
+        $ls = if ($null -eq $script:LastProfileCommandTime) {
+            $now - $Start
+        }
+        else {
+            $now - $script:LastProfileCommandTime
+        }
+        $ts = $now - $Start
+        Write-Host -ForegroundColor Cyan ("[L+{0:00}.{1:000}s] [T+{2:00}.{3:000}s] [{4}] [{5}] {6}" -f ([Math]::Floor($ls.TotalSeconds)),$ls.Milliseconds,([Math]::Floor($ts.TotalSeconds)),$ts.Milliseconds,"$Section".PadRight(10,'.'),"$Action".PadRight(9,'.'),$Message)
+        $script:LastProfileCommandTime = Get-Date
     }
-    else {
-        $now - $script:LastProfileCommandTime
-    }
-    $ts = $now - $Start
-    Write-Host -ForegroundColor Cyan ("[L+{0:00}.{1:000}s] [T+{2:00}.{3:000}s] [{4}] [{5}] {6}" -f ([Math]::Floor($ls.TotalSeconds)),$ls.Milliseconds,([Math]::Floor($ts.TotalSeconds)),$ts.Milliseconds,"$Section".PadRight(10,'.'),"$Action".PadRight(9,'.'),$Message)
-    $script:LastProfileCommandTime = Get-Date
 }
 #endregion: Add activity header and anonymous functions
 
 #region: Load CONFIG.ps1 to fill out $global:PSProfileConfig
 try {
     foreach ($configFile in (Get-ChildItem $PSScriptRoot -Filter "CONFIG*ps1" -ErrorAction Stop | Sort-Object {$_.BaseName.Length} -Descending)) {
-        &$log ". .\$($configFile.Name)" "Script" "Invoke"
+        if ($logOutput) {
+            &$log ". .\$($configFile.Name)" "Script" "Invoke"
+        }
         . $configFile.FullName
     }
 }
@@ -57,13 +62,17 @@ foreach ($varType in $global:PSProfileConfig.Variables.Keys) {
     switch ($varType) {
         Environment {
             foreach ($var in $global:PSProfileConfig.Variables[$varType].Keys) {
-                &$log "`$env:$var = '$($global:PSProfileConfig.Variables[$varType][$var])'" "Variable" "Set"
+                if ($logOutput) {
+                    &$log "`$env:$var = '$($global:PSProfileConfig.Variables[$varType][$var])'" "Variable" "Set"
+                }
                 Set-Item "Env:\$var" -Value $global:PSProfileConfig.Variables[$varType][$var] -Force
             }
         }
         default {
             foreach ($var in $global:PSProfileConfig.Variables.Global.Keys) {
-                &$log "`$$($varType.ToLower()):$var = '$($global:PSProfileConfig.Variables[$varType][$var])'" "Variable" "Set"
+                if ($logOutput) {
+                    &$log "`$$($varType.ToLower()):$var = '$($global:PSProfileConfig.Variables[$varType][$var])'" "Variable" "Set"
+                }
                 Set-Variable -Name $var -Value $global:PSProfileConfig.Variables[$varType][$var] -Scope $varType -Force
             }
         }
@@ -96,11 +105,15 @@ foreach ($category in $global:PSProfileConfig.GitPaths.Keys) {
     else {
         $gitPath = $global:PSProfileConfig.GitPaths[$category]
     }
-    &$log "'$($aliasIcon)git' = '$($gitPath)'" "PathAlias" "Set"
+    if ($logOutput) {
+        &$log "'$($aliasIcon)git' = '$($gitPath)'" "PathAlias" "Set"
+    }
     $global:PSProfileConfig['_internal']['PathAliasMap']["$($aliasIcon)git"] = $gitPath
 }
 foreach ($alias in $global:PSProfileConfig.PathAliases) {
-    &$log "'$($alias['Alias'])' = '$($alias['Path'])'" "PathAlias" "Set"
+    if ($logOutput) {
+        &$log "'$($alias['Alias'])' = '$($alias['Path'])'" "PathAlias" "Set"
+    }
     $global:PSProfileConfig['_internal']['PathAliasMap'][$alias['Alias']] = $alias['Path']
 }
 #endregion: Fill out PathAliasMap
@@ -121,7 +134,6 @@ foreach ($key in $global:PSProfileConfig.GitPaths.Keys) {
     else {
         "???<$($global:PSProfileConfig.GitPaths[$key])>"
     }
-    &$log "$key[$fullPath]" "GitRepos" "Discover"
     $g = 0
     $b = 0
     if ($fullPath -notmatch '^\?\?\?' -and (Test-Path $fullPath)) {
@@ -134,7 +146,9 @@ foreach ($key in $global:PSProfileConfig.GitPaths.Keys) {
             }
         }
     }
-    &$log "$key[$fullPath] :: $g git | $b build" "GitRepos" "Report"
+    if ($logOutput) {
+        &$log "$key[$fullPath] :: $g git | $b build" "GitRepos" "Report"
+    }
 }
 #endregion: Fill out GitPathMap and PSBuildPathMap
 
@@ -142,12 +156,16 @@ foreach ($key in $global:PSProfileConfig.GitPaths.Keys) {
 $global:PSProfileConfig._internal['ProfileSettingsPath'] = [System.IO.Path]::Combine($PSScriptRoot,'SENSITIVE','settings.json')
 if (-not (Test-Path $global:PSProfileConfig._internal['ProfileSettingsPath'])) {
     if ($null -ne $global:PSProfileConfig.Settings -and $null -ne $global:PSProfileConfig.Settings.Keys) {
-        &$log "Creating settings.json @ $($global:PSProfileConfig._internal['ProfileSettingsPath'])" "Profile" "Maint"
+        if ($logOutput) {
+            &$log "Creating settings.json @ $($global:PSProfileConfig._internal['ProfileSettingsPath'])" "Profile" "Maint"
+        }
         $global:PSProfileConfig.Settings | ConvertTo-Json -Depth 5 | Set-Content $global:PSProfileConfig._internal['ProfileSettingsPath'] -Force
     }
 }
 else {
-    &$log "Importing settings.json @ $($global:PSProfileConfig._internal['ProfileSettingsPath'])" "Profile" "Maint"
+    if ($logOutput) {
+        &$log "Importing settings.json @ $($global:PSProfileConfig._internal['ProfileSettingsPath'])" "Profile" "Maint"
+    }
     if ($null -eq $global:PSProfileConfig.Settings) {
         $global:PSProfileConfig.Settings = @{}
     }
@@ -163,7 +181,9 @@ $global:PSProfileConfig._internal['ProfileFiles'] = Get-ChildItem $PSScriptRoot 
     $_.Name -notmatch '^(WIP|profile.ps1|CONFIG)'
 }
 foreach ($file in $global:PSProfileConfig._internal['ProfileFiles']) {
-    &$log ". '$($file.FullName)'" "Script" "Invoke"
+    if ($logOutput) {
+        &$log ". '$($file.FullName)'" "Script" "Invoke"
+    }
     . $file.FullName
 }
 #endregion: Invoke additional profile scripts
@@ -171,11 +191,15 @@ foreach ($file in $global:PSProfileConfig._internal['ProfileFiles']) {
 #region: Set prompt
 if (-not $env:DemoInProgress) {
     $global:PSProfileConfig.ModulesToImport | ForEach-Object {
-        &$log $_ "Module" "Import"
+        if ($logOutput) {
+            &$log $_ "Module" "Import"
+        }
         Import-Module $_ -ErrorAction SilentlyContinue
     }
     if ($global:PSProfileConfig.Settings.Prompt) {
-        &$log "Setting prompt to $($global:PSProfileConfig.Settings.Prompt)" "Profile" "Maint"
+        if ($logOutput) {
+            &$log "Setting prompt to $($global:PSProfileConfig.Settings.Prompt)" "Profile" "Maint"
+        }
         Switch-Prompt -Prompt $global:PSProfileConfig.Settings.Prompt
     }
 }
