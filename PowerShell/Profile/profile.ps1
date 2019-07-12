@@ -3,8 +3,8 @@ $Host.UI.RawUI.WindowTitle = 'PS {0}' -f ($PSVersionTable.PSVersion.ToString().S
 $logOutput = -not (Test-Path ([System.IO.Path]::Combine($PSScriptRoot,'SENSITIVE','nolog')))
 if ($logOutput) {
     Write-Host -ForegroundColor Yellow "
-    [LastTime.] [TotalTime] [Section...] [Action...] Log Message...
-    ----------- ----------- ------------ ----------- ---------------------------------------------------------------------"
+[LastTime.] [TotalTime] [Section...] [Action...] Log Message...
+----------- ----------- ------------ ----------- ---------------------------------------------------------------------"
     $log = {
         Param(
             $Message,
@@ -182,7 +182,7 @@ $global:PSProfileConfig._internal['ProfileFiles'] = Get-ChildItem $PSScriptRoot 
 }
 foreach ($file in $global:PSProfileConfig._internal['ProfileFiles']) {
     if ($logOutput) {
-        &$log ". '$($file.FullName)'" "Script" "Invoke"
+        &$log ". '$($file.FullName.Replace($PSScriptRoot,'.'))'" "Script" "Invoke"
     }
     . $file.FullName
 }
