@@ -2,17 +2,25 @@ function global:code {
     [CmdletBinding(DefaultParameterSetName = 'Location')]
     Param (
         [parameter(Mandatory,Position = 0,ParameterSetName = 'Location')]
-        [Alias('l')]
         [String]
         $Location,
+        [parameter(ParameterSetName = 'Location')]
+        [parameter(ParameterSetName = 'Cookbook')]
+        [Alias('add','a')]
+        [Switch]
+        $AddToWorkspace,
         [parameter(ValueFromPipeline,ParameterSetName = 'InputObject')]
         [Object]
         $InputObject,
         [parameter(ValueFromPipeline,ParameterSetName = 'InputObject')]
+        [Alias('l','lang')]
+        [String]
+        $Language = 'txt',
+        [parameter(ValueFromPipeline,ParameterSetName = 'InputObject')]
+        [Alias('w')]
         [Switch]
-        $AsJob,
-        [parameter(ValueFromRemainingArguments,ParameterSetName = 'Location')]
-        [parameter(ValueFromRemainingArguments,ParameterSetName = 'Cookbook')]
+        $Wait,
+        [parameter(ValueFromRemainingArguments)]
         [Object]
         $Arguments
     )
@@ -35,6 +43,29 @@ function global:code {
     Begin {
         if ($PSCmdlet.ParameterSetName -eq 'InputObject') {
             $collection = New-Object System.Collections.Generic.List[object]
+            $extDict = @{
+                txt = 'txt'
+                powershell = 'ps1'
+                csv = 'csv'
+                sql = 'sql'
+                xml = 'xml'
+                json = 'json'
+                yml = 'yml'
+                csharp = 'cs'
+                fsharp = 'fs'
+                ruby = 'rb'
+                html = 'html'
+                css = 'css'
+                go = 'go'
+                jsonc = 'jsonc'
+                javascript = 'js'
+                typescript = 'ts'
+                less = 'less'
+                log = 'log'
+                python = 'py'
+                razor = 'cshtml'
+                markdown = 'md'
+            }
         }
     }
     Process {
@@ -64,19 +95,53 @@ function global:code {
                     [System.IO.Path]::Combine($global:PSProfileConfig['_internal']['GitPathMap']['chef-repo'],'cookbooks',$PSBoundParameters['Cookbook'])
                 }
             }
-            Write-Verbose "Running command: & `$code $($PSBoundParameters[$PSCmdlet.ParameterSetName]) $Arguments"
-            & $code $target $Arguments
+            if ($AddToWorkspace) {
+                Write-Verbose "Running command: code --add $($PSBoundParameters[$PSCmdlet.ParameterSetName]) $Arguments"
+                & $code --add $target $Arguments
+            }
+            else {
+                Write-Verbose "Running command: code $($PSBoundParameters[$PSCmdlet.ParameterSetName]) $Arguments"
+                & $code $target $Arguments
+            }
         }
     }
     End {
         if ($PSCmdlet.ParameterSetName -eq 'InputObject') {
-            if ($AsJob) {
-                Write-Verbose "Piping input to Code: `$collection | Start-Job {& $code -}"
-                $collection | Start-Job { & $code - } -InitializationScript { $code = (Get-Command code -All | Where-Object { $_.CommandType -ne 'Function' })[0].Source }
+            $ext = if ($extDict.ContainsKey($Language)) {
+                $extDict[$Language]
+            } else {
+                $Language
+            }
+            $in = @{
+                StdIn = $collection
+                TmpFile = [System.IO.Path]::Combine(([System.IO.Path]::GetTempPath()),"code-stdin-$(-join ((97..(97+25)|%{[char]$_}) | Get-Random -Count 3)).$ext")
+            }
+            $handler = {
+                Param(
+                    [hashtable]
+                    $in
+                )
+                try {
+                    $code = (Get-Command code -All | Where-Object { $_.CommandType -ne 'Function' })[0].Source
+                    $in.StdIn | Set-Content $in.TmpFile -Force
+                    & $code $in.TmpFile --wait
+                }
+                catch {
+                    throw
+                }
+                finally {
+                    if (Test-Path $in.TmpFile -ErrorAction SilentlyContinue) {
+                        Remove-Item $in.TmpFile -Force
+                    }
+                }
+            }
+            if (-not $Wait) {
+                Write-Verbose "Piping input to Code: `$in | Start-Job {code -}"
+                Start-Job -ScriptBlock $handler -ArgumentList $in
             }
             else {
-                Write-Verbose "Piping input to Code: `$collection | & `$code -"
-                $collection | & $code -
+                Write-Verbose "Piping input to Code: `$in | code -"
+                .$handler($in)
             }
         }
     }
@@ -85,10 +150,15 @@ function global:code {
 if ($null -ne $global:PSProfileConfig['_internal']['GitPathMap'].Keys) {
     Register-ArgumentCompleter -CommandName 'code' -ParameterName 'Location' -ScriptBlock {
         param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameter)
-        $set = @('.','-')
-        $set += $global:PSProfileConfig['_internal']['GitPathMap'].Keys
-        $set | Where-Object {$_ -like "*$wordToComplete*"} | ForEach-Object {
+        $global:PSProfileConfig['_internal']['GitPathMap'].Keys | Where-Object {$_ -like "$wordToComplete*"} | Sort-Object | ForEach-Object {
             [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
         }
+    }
+}
+
+Register-ArgumentCompleter -CommandName 'code' -ParameterName 'Language' -ScriptBlock {
+    param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameter)
+    'txt','powershell','csv','sql','xml','json','yml','csharp','fsharp','ruby','html','css','go','jsonc','javascript','typescript','less','log','python','razor','markdown' | Sort-Object | Where-Object {$_ -like "$wordToComplete*"} | Sort-Object | ForEach-Object {
+        [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
     }
 }
