@@ -150,7 +150,7 @@ function global:Open-Code {
 New-Alias -Name code -Value 'Open-Code' -Scope Global -Option AllScope -Force
 
 if ($null -ne $global:PSProfileConfig['_internal']['GitPathMap'].Keys) {
-    Register-ArgumentCompleter -CommandName 'code' -ParameterName 'Location' -ScriptBlock {
+    Register-ArgumentCompleter -CommandName 'Open-Code' -ParameterName 'Location' -ScriptBlock {
         param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameter)
         $global:PSProfileConfig['_internal']['GitPathMap'].Keys | Where-Object {$_ -like "$wordToComplete*"} | Sort-Object | ForEach-Object {
             [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
@@ -158,7 +158,7 @@ if ($null -ne $global:PSProfileConfig['_internal']['GitPathMap'].Keys) {
     }
 }
 
-Register-ArgumentCompleter -CommandName 'code' -ParameterName 'Language' -ScriptBlock {
+Register-ArgumentCompleter -CommandName 'Open-Code' -ParameterName 'Language' -ScriptBlock {
     param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameter)
     'txt','powershell','csv','sql','xml','json','yml','csharp','fsharp','ruby','html','css','go','jsonc','javascript','typescript','less','log','python','razor','markdown' | Sort-Object | Where-Object {$_ -like "$wordToComplete*"} | Sort-Object | ForEach-Object {
         [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
