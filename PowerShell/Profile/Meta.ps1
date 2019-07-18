@@ -7,10 +7,6 @@ function Enable-ProfileClear {
     $env:PSProfileClear = 1
 }
 
-if ($null -eq (Get-Command open -ErrorAction SilentlyContinue)) {
-    New-Alias -Name open -Value Invoke-Item -Scope Global -Force
-}
-
 function Invoke-Profile {
     . $profile.CurrentUserAllHosts
 }

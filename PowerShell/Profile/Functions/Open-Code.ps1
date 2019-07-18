@@ -1,4 +1,4 @@
-function global:code {
+function global:Open-Code {
     [CmdletBinding(DefaultParameterSetName = 'Location')]
     Param (
         [parameter(Mandatory,Position = 0,ParameterSetName = 'Location')]
@@ -146,6 +146,8 @@ function global:code {
         }
     }
 }
+
+New-Alias -Name code -Value 'Open-Code' -Scope Global -Option AllScope -Force
 
 if ($null -ne $global:PSProfileConfig['_internal']['GitPathMap'].Keys) {
     Register-ArgumentCompleter -CommandName 'code' -ParameterName 'Location' -ScriptBlock {
