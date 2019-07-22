@@ -1,10 +1,10 @@
 function global:Open-Code {
-    [CmdletBinding(DefaultParameterSetName = 'Location')]
+    [CmdletBinding(DefaultParameterSetName = 'Path')]
     Param (
-        [parameter(Mandatory,Position = 0,ParameterSetName = 'Location')]
+        [parameter(Mandatory,Position = 0,ParameterSetName = 'Path')]
         [String]
-        $Location,
-        [parameter(ParameterSetName = 'Location')]
+        $Path,
+        [parameter(ParameterSetName = 'Path')]
         [parameter(ParameterSetName = 'Cookbook')]
         [Alias('add','a')]
         [Switch]
@@ -75,20 +75,20 @@ function global:Open-Code {
         }
         else {
             $target = switch ($PSCmdlet.ParameterSetName) {
-                Location {
-                    if ($PSBoundParameters['Location'] -eq '.') {
+                Path {
+                    if ($PSBoundParameters['Path'] -eq '.') {
                         $PWD.Path
                     }
                     elseif ($null -ne $global:PSProfileConfig['_internal']['GitPathMap'].Keys) {
-                        if ($global:PSProfileConfig['_internal']['GitPathMap'].ContainsKey($PSBoundParameters['Location'])) {
-                            $global:PSProfileConfig['_internal']['GitPathMap'][$PSBoundParameters['Location']]
+                        if ($global:PSProfileConfig['_internal']['GitPathMap'].ContainsKey($PSBoundParameters['Path'])) {
+                            $global:PSProfileConfig['_internal']['GitPathMap'][$PSBoundParameters['Path']]
                         }
                         else {
-                            $PSBoundParameters['Location']
+                            $PSBoundParameters['Path']
                         }
                     }
                     else {
-                        $PSBoundParameters['Location']
+                        $PSBoundParameters['Path']
                     }
                 }
                 Cookbook {
@@ -149,8 +149,11 @@ function global:Open-Code {
 
 New-Alias -Name code -Value 'Open-Code' -Scope Global -Option AllScope -Force
 
-if ($null -ne $global:PSProfileConfig['_internal']['GitPathMap'].Keys) {
-    Register-ArgumentCompleter -CommandName 'Open-Code' -ParameterName 'Location' -ScriptBlock {
+if (
+    ($null -ne $global:PSProfileConfig -and $null -ne $global:PSProfileConfig['_internal']['GitPathMap'].Keys) -or
+    ($null -ne $global:PSProfile -and $null -ne $global:PSProfile['GitPathMap'].Keys)
+) {
+    Register-ArgumentCompleter -CommandName 'Open-Code' -ParameterName 'Path' -ScriptBlock {
         param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameter)
         $global:PSProfileConfig['_internal']['GitPathMap'].Keys | Where-Object {$_ -like "$wordToComplete*"} | Sort-Object | ForEach-Object {
             [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)

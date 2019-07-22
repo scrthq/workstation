@@ -1,9 +1,9 @@
 function global:Open-Item {
-    [CmdletBinding(DefaultParameterSetName = 'Location')]
+    [CmdletBinding(DefaultParameterSetName = 'Path')]
     Param (
-        [parameter(Mandatory,Position = 0,ParameterSetName = 'Location')]
+        [parameter(Mandatory,Position = 0,ParameterSetName = 'Path')]
         [String]
-        $Location
+        $Path
     )
     DynamicParam {
         if ($global:PSProfileConfig['_internal']['GitPathMap'].ContainsKey('chef-repo')) {
@@ -23,20 +23,20 @@ function global:Open-Item {
     }
     Process {
         $target = switch ($PSCmdlet.ParameterSetName) {
-            Location {
-                if ($PSBoundParameters['Location'] -eq '.') {
+            Path {
+                if ($PSBoundParameters['Path'] -eq '.') {
                     $PWD.Path
                 }
                 elseif ($null -ne $global:PSProfileConfig['_internal']['GitPathMap'].Keys) {
-                    if ($global:PSProfileConfig['_internal']['GitPathMap'].ContainsKey($PSBoundParameters['Location'])) {
-                        $global:PSProfileConfig['_internal']['GitPathMap'][$PSBoundParameters['Location']]
+                    if ($global:PSProfileConfig['_internal']['GitPathMap'].ContainsKey($PSBoundParameters['Path'])) {
+                        $global:PSProfileConfig['_internal']['GitPathMap'][$PSBoundParameters['Path']]
                     }
                     else {
-                        $PSBoundParameters['Location']
+                        $PSBoundParameters['Path']
                     }
                 }
                 else {
-                    $PSBoundParameters['Location']
+                    $PSBoundParameters['Path']
                 }
             }
             Cookbook {
@@ -48,8 +48,11 @@ function global:Open-Item {
     }
 }
 
-if ($null -ne $global:PSProfileConfig['_internal']['GitPathMap'].Keys) {
-    Register-ArgumentCompleter -CommandName 'Open-Item' -ParameterName 'Location' -ScriptBlock {
+if (
+    ($null -ne $global:PSProfileConfig -and $null -ne $global:PSProfileConfig['_internal']['GitPathMap'].Keys) -or
+    ($null -ne $global:PSProfile -and $null -ne $global:PSProfile['GitPathMap'].Keys)
+) {
+    Register-ArgumentCompleter -CommandName 'Open-Item' -ParameterName 'Path' -ScriptBlock {
         param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameter)
         $global:PSProfileConfig['_internal']['GitPathMap'].Keys | Where-Object {$_ -like "$wordToComplete*"} | Sort-Object | ForEach-Object {
             [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)

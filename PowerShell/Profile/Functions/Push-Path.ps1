@@ -1,10 +1,10 @@
 
-function global:push {
+function Push-Path {
     [CmdletBinding()]
     Param(
-        [parameter(Mandatory,Position = 0,ParameterSetName = 'Location')]
+        [parameter(Mandatory,Position = 0,ParameterSetName = 'Path')]
         [String]
-        $Location
+        $Path
     )
     DynamicParam {
         $RuntimeParamDic = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
@@ -24,12 +24,12 @@ function global:push {
     }
     Process {
         $target = switch ($PSCmdlet.ParameterSetName) {
-            Location {
-                if ($global:PSProfileConfig['_internal']['GitPathMap'].ContainsKey($PSBoundParameters['Location'])) {
-                    $global:PSProfileConfig['_internal']['GitPathMap'][$PSBoundParameters['Location']]
+            Path {
+                if ($global:PSProfileConfig['_internal']['GitPathMap'].ContainsKey($PSBoundParameters['Path'])) {
+                    $global:PSProfileConfig['_internal']['GitPathMap'][$PSBoundParameters['Path']]
                 }
                 else {
-                    $PSBoundParameters['Location']
+                    $PSBoundParameters['Path']
                 }
             }
             Cookbook {
@@ -41,10 +41,14 @@ function global:push {
     }
 }
 
+New-Alias -Name push -Value Push-Path -Option AllScope -Scope Global
 New-Alias -Name pop -Value Pop-Location -Option AllScope -Scope Global
 
-if ($null -ne $global:PSProfileConfig['_internal']['GitPathMap'].Keys) {
-    Register-ArgumentCompleter -CommandName 'push' -ParameterName 'Location' -ScriptBlock {
+if (
+    ($null -ne $global:PSProfileConfig -and $null -ne $global:PSProfileConfig['_internal']['GitPathMap'].Keys) -or
+    ($null -ne $global:PSProfile -and $null -ne $global:PSProfile['GitPathMap'].Keys)
+) {
+    Register-ArgumentCompleter -CommandName 'Push-Path' -ParameterName 'Path' -ScriptBlock {
         param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameter)
         $global:PSProfileConfig['_internal']['GitPathMap'].Keys | Where-Object {$_ -like "$wordToComplete*"} | Sort-Object | ForEach-Object {
             [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)

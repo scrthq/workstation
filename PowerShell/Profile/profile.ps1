@@ -184,7 +184,7 @@ foreach ($file in $global:PSProfileConfig._internal['ProfileFiles']) {
     if ($logOutput) {
         &$log ". '$($file.FullName.Replace($PSScriptRoot,'.'))'" "Script" "Invoke"
     }
-    . $file.FullName
+    Invoke-Expression ([System.IO.File]::ReadAllText($file.FullName))
 }
 #endregion: Invoke additional profile scripts
 
