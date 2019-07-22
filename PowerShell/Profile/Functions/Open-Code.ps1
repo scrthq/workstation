@@ -69,7 +69,7 @@ function global:Open-Code {
         }
     }
     Process {
-        $code = (Get-Command code -All | Where-Object { $_.CommandType -ne 'Function' })[0].Source
+        $code = (Get-Command code -All | Where-Object { $_.CommandType -notin @('Function','Alias') })[0].Source
         if ($PSCmdlet.ParameterSetName -eq 'InputObject') {
             $collection.Add($InputObject)
         }
@@ -122,7 +122,7 @@ function global:Open-Code {
                     $in
                 )
                 try {
-                    $code = (Get-Command code -All | Where-Object { $_.CommandType -ne 'Function' })[0].Source
+                    $code = (Get-Command code -All | Where-Object { $_.CommandType -notin @('Function','Alias') })[0].Source
                     $in.StdIn | Set-Content $in.TmpFile -Force
                     & $code $in.TmpFile --wait
                 }
