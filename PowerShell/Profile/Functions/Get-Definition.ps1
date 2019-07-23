@@ -16,9 +16,7 @@ function Get-Definition {
     }
 }
 
-'def','Define' | ForEach-Object {
-    Set-Alias -Name $_ -Value Get-Definition -Option AllScope -Scope Global
-}
+Set-Alias -Name def -Value Get-Definition -Option AllScope -Scope Global
 
 Register-ArgumentCompleter -CommandName 'Get-Definition' -ParameterName 'Command' -ScriptBlock {
     param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameter)
