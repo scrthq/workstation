@@ -60,4 +60,4 @@ if (
     }
 }
 
-New-Alias -Name open -Value 'Open-Item' -Scope Global -Option AllScope
+New-Alias -Name open -Value 'Open-Item' -Scope Global -Option AllScope -Force

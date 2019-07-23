@@ -41,8 +41,8 @@ function Push-Path {
     }
 }
 
-New-Alias -Name push -Value Push-Path -Option AllScope -Scope Global
-New-Alias -Name pop -Value Pop-Location -Option AllScope -Scope Global
+New-Alias -Name push -Value Push-Path -Option AllScope -Scope Global -Force
+New-Alias -Name pop -Value Pop-Location -Option AllScope -Scope Global -Force
 
 if (
     ($null -ne $global:PSProfileConfig -and $null -ne $global:PSProfileConfig['_internal']['GitPathMap'].Keys) -or
