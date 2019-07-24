@@ -2,7 +2,7 @@ if ($PSVersionTable.PSVersion.Major -lt 6 -or $IsWindows) {
     $env:PYTHONIOENCODING = "UTF-8"
 }
 
-function Test-ADCredential {
+function global:Test-ADCredential {
     [CmdletBinding()]
     Param(
         [parameter(Mandatory,Position = 0)]
@@ -26,7 +26,7 @@ function Test-ADCredential {
     $null -ne $domain.name
 }
 
-function Convert-Duration {
+function global:Convert-Duration {
     <#
     .SYNOPSIS
     Converts a TimeSpan or ISO8601 duration string to the desired output type.
@@ -220,7 +220,7 @@ function Convert-Duration {
     }
 }
 
-function Get-PublicIp {
+function global:Get-PublicIp {
     [CmdletBinding()]
     Param (
         [parameter(Position = 0,ValueFromPipeline,ValueFromPipelineByPropertyName)]
@@ -242,88 +242,6 @@ function Get-PublicIp {
         }
         if ($others = $ComputerName | Where-Object {$_ -ne $env:COMPUTERNAME}) {
             Invoke-Command -ComputerName $others -ScriptBlock $ScriptBlock | Select-Object ComputerName,PublicIp
-        }
-    }
-}
-
-function global:Get-Gist {
-    [CmdletBinding()]
-    Param (
-        [parameter(Mandatory,ValueFromPipeline,ValueFromPipelineByPropertyName,Position = 0)]
-        [String]
-        $Id,
-        [parameter(ValueFromPipelineByPropertyName)]
-        [Alias('Files')]
-        [String[]]
-        $File,
-        [parameter(ValueFromPipelineByPropertyName)]
-        [String]
-        $Sha,
-        [parameter(ValueFromPipelineByPropertyName,ValueFromRemainingArguments)]
-        [Object]
-        $Metadata,
-        [parameter()]
-        [Switch]
-        $Invoke
-    )
-    Process {
-        $Uri = [System.Collections.Generic.List[string]]@(
-            'https://api.github.com'
-            '/gists/'
-            $PSBoundParameters['Id']
-        )
-        if ($PSBoundParameters.ContainsKey('Sha')) {
-            $Uri.Add("/$($PSBoundParameters['Sha'])")
-            Write-Verbose "[$($PSBoundParameters['Id'])] Getting gist info @ SHA '$($PSBoundParameters['Sha'])'"
-        }
-        else {
-            Write-Verbose "[$($PSBoundParameters['Id'])] Getting gist info"
-        }
-        $gistInfo = Invoke-RestMethod -Uri ([Uri](-join $Uri)) -Verbose:$false
-        $fileNames = if ($PSBoundParameters.ContainsKey('File')) {
-            $PSBoundParameters['File']
-        }
-        else {
-            $gistInfo.files.PSObject.Properties.Name
-        }
-        foreach ($fileName in $fileNames) {
-            Write-Verbose "[$fileName] Getting gist file content"
-            $fileInfo = $gistInfo.files.$fileName
-            $content = if ($fileInfo.truncated) {
-                (Invoke-WebRequest -Uri ([Uri]$fileInfo.raw_url)).Content
-            }
-            else {
-                $fileInfo.content
-            }
-            $lines = ($content -split "`n").Count
-            if ($Invoke) {
-                Write-Verbose "[$fileName] Parsing gist file content ($lines lines)"
-                $noScopePattern = '^function\s+(?<Name>[\w+_-]{1,})\s+\{'
-                $globalScopePattern = '^function\s+global\:'
-                $noScope = [RegEx]::Matches($content, $noScopePattern, "Multiline, IgnoreCase")
-                $globalScope = [RegEx]::Matches($content,$globalScopePattern,"Multiline, IgnoreCase")
-                if ($noScope.Count -ge $globalScope.Count) {
-                    foreach ($match in $noScope) {
-                        $fullValue = ($match.Groups | Where-Object { $_.Name -eq 0 }).Value
-                        $funcName = ($match.Groups | Where-Object { $_.Name -eq 'Name' }).Value
-                        Write-Verbose "[$fileName::$funcName] Updating function to global scope to ensure it imports correctly."
-                        $content = $content.Replace($fullValue, "function global:$funcName {")
-                    }
-                }
-                Write-Verbose "[$fileName] Invoking gist file content"
-                $ExecutionContext.InvokeCommand.InvokeScript(
-                    $false,
-                    ([scriptblock]::Create($content)),
-                    $null,
-                    $null
-                )
-            }
-            [PSCustomObject]@{
-                File    = $fileName
-                Sha     = $Sha
-                Count   = $lines
-                Content = $content -join "`n"
-            }
         }
     }
 }
@@ -401,197 +319,6 @@ function global:Set-ProcessPriority {
                 Write-Verbose "Invoking via { powershell -noprofile -command `$command }"
                 powershell -noprofile -command "$command"
             }
-        }
-    }
-}
-
-function global:Update-GitAliases {
-    [CmdletBinding()]
-    Param()
-    Process {
-        if (Get-Command git) {
-            $aliasList = @(
-                "a = !git add . && git status"
-                "aa = !git add . && git add -u . && git status"
-                "ac = !git add . && git commit"
-                "acm = !git add . && git commit -m"
-                "alias = !git config --get-regexp '^alias\.' | sort"
-                "amend = !git add -A && git commit --amend --no-edit"
-                "au = !git add -u . && git status"
-                "b = branch"
-                "ba = branch --all"
-                "c = commit"
-                "ca = commit --amend # careful"
-                "cam = commit -am"
-                "cm = commit -m"
-                "co = checkout"
-                "con = !git --no-pager config --list"
-                "conl = !git --no-pager config --local --list"
-                "conls = !git --no-pager config --local --list --show-origin"
-                "cons = !git --no-pager config --list --show-origin"
-                "current = !git branch | grep \* | cut -d ' ' -f2"
-                "d = !git --no-pager diff"
-                "f = fetch --all"
-                "fp = fetch --all --prune"
-                "l = log --graph --all --pretty=format:'%C(yellow)%h%C(cyan)%d%Creset %s %C(white)- %an, %ar%Creset'"
-                "lg = log --color --graph --pretty=format:'%C(bold white)%h%Creset -%C(bold green)%d%Creset %s %C(bold green)(%cr)%Creset %C(bold blue)<%an>%Creset' --abbrev-commit --date=relative"
-                "ll = log --stat --abbrev-commit"
-                "llg = log --color --graph --pretty=format:'%C(bold white)%H %d%Creset%n%s%n%+b%C(bold blue)%an <%ae>%Creset %C(bold green)%cr (%ci)' --abbrev-commit"
-                "master = checkout master"
-                "n = checkout -b"
-                "origin = remote get-url origin"
-                "p = !git push"
-                "pf = !git push -f"
-                "pu = !git push -u origin ```$(git branch | grep \* | cut -d ' ' -f2)"
-                "s = status"
-                "ss = status -s"
-            )
-            Write-Verbose "Setting git aliases:"
-            foreach ($alias in $aliasList) {
-                $side = $alias -split " = "
-                Write-Verbose "$($side[0]) = $($side[1])"
-                Invoke-Expression $("git config --global alias.{0} `"{1}`"" -f $side[0],$side[1])
-            }
-        }
-    }
-}
-
-function global:cln {
-    [CmdletBinding()]
-    Param (
-        [parameter(Position = 0)]
-        [ValidateSet('powershell','pwsh','pwsh-preview')]
-        [Alias('E')]
-        [String]
-        $Engine = $(if ($PSVersionTable.PSVersion.Major -ge 6) {
-                'pwsh'
-            }
-            else {
-                'powershell'
-            }),
-        [Parameter()]
-        [Alias('ipmo','Import')]
-        [Switch]
-        $ImportModule
-    )
-    Process {
-        $verboseMessage = "Creating clean environment...`n           Engine : $Engine"
-        $command = "$Engine -NoProfile -NoExit -C `"```$global:CleanNumber = 0;if (```$null -ne (Get-Module PSReadline)) {Set-PSReadLineKeyHandler -Chord Tab -Function MenuComplete;Set-PSReadLineKeyHandler -Key UpArrow -Function HistorySearchBackward;Set-PSReadLineKeyHandler -Key DownArrow -Function HistorySearchForward;Set-PSReadLineKeyHandler -Chord 'Ctrl+W' -Function BackwardKillWord;Set-PSReadLineKeyHandler -Chord 'Ctrl+z' -Function MenuComplete;Set-PSReadLineKeyHandler -Chord 'Ctrl+D' -Function KillWord;};function global:prompt {```$global:CleanNumber++;'[CLN#' + ```$global:CleanNumber + '] [' + [Math]::Round((Get-History -Count 1).Duration.TotalMilliseconds,0) + 'ms] ' + ```$((Get-Location).Path.Replace(```$env:Home,'~')) + '```n[PS ' + ```$PSVersionTable.PSVersion.ToString() + ']>> '};"
-        if ($ImportModule) {
-            if (($modName = (Get-ChildItem .\BuildOutput -Directory).BaseName)) {
-                $modPath = '.\BuildOutput\' + $modName
-                $verboseMessage += "`n           Module : $modName"
-                $command += "Import-Module '$modPath' -Verbose:```$false;Get-Module $modName"
-            }
-        }
-        $command += '"'
-        Write-Verbose $verboseMessage
-        Invoke-Expression $command
-    }
-}
-
-function global:bld {
-    [CmdletBinding(PositionalBinding = $false)]
-    Param (
-        [parameter()]
-        [Alias('ne')]
-        [Switch]
-        $NoExit,
-        [parameter()]
-        [Alias('nr')]
-        [Switch]
-        $NoRestore
-    )
-    DynamicParam {
-        $RuntimeParamDic = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
-        $AttribColl = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
-        $ParamAttrib = New-Object System.Management.Automation.ParameterAttribute
-        $ParamAttrib.Mandatory = $false
-        $ParamAttrib.Position = 0
-        $AttribColl.Add($ParamAttrib)
-        $set = @()
-        $set += $global:PSProfileConfig['_internal']['PSBuildPathMap'].Keys
-        $set += '.'
-        $AttribColl.Add((New-Object System.Management.Automation.ValidateSetAttribute($set)))
-        $AttribColl.Add((New-Object System.Management.Automation.AliasAttribute('p')))
-        $RuntimeParam = New-Object System.Management.Automation.RuntimeDefinedParameter('Project',  [string], $AttribColl)
-        $RuntimeParamDic.Add('Project',  $RuntimeParam)
-
-        $AttribColl = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
-        $ParamAttrib = New-Object System.Management.Automation.ParameterAttribute
-        $ParamAttrib.Mandatory = $false
-        $ParamAttrib.Position = 1
-        $AttribColl.Add($ParamAttrib)
-        $bldFile = Join-Path $PWD.Path "build.ps1"
-        $set = if (Test-Path $bldFile) {
-            ((([System.Management.Automation.Language.Parser]::ParseFile($bldFile, [ref]$null, [ref]$null)).ParamBlock.Parameters | Where-Object { $_.Name.VariablePath.UserPath -eq 'Task' }).Attributes | Where-Object { $_.TypeName.Name -eq 'ValidateSet' }).PositionalArguments.Value
-        }
-        else {
-            @('Update','Clean','Compile','CompileCSharp','Import','Test','TestOnly','Deploy')
-        }
-        $AttribColl.Add((New-Object System.Management.Automation.ValidateSetAttribute($set)))
-        $AttribColl.Add((New-Object System.Management.Automation.AliasAttribute('t')))
-        $RuntimeParam = New-Object System.Management.Automation.RuntimeDefinedParameter('Task',  [string[]], $AttribColl)
-        $RuntimeParamDic.Add('Task',  $RuntimeParam)
-
-        $AttribColl = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
-        $ParamAttrib = New-Object System.Management.Automation.ParameterAttribute
-        $ParamAttrib.Mandatory = $false
-        $ParamAttrib.Position = 2
-        $AttribColl.Add($ParamAttrib)
-        $set = @('powershell','pwsh','pwsh-preview')
-        $AttribColl.Add((New-Object System.Management.Automation.ValidateSetAttribute($set)))
-        $AttribColl.Add((New-Object System.Management.Automation.AliasAttribute('e')))
-        $RuntimeParam = New-Object System.Management.Automation.RuntimeDefinedParameter('Engine',  [string], $AttribColl)
-        $RuntimeParamDic.Add('Engine',  $RuntimeParam)
-
-        return  $RuntimeParamDic
-    }
-    Process {
-        if (-not $PSBoundParameters.ContainsKey('Project')) {
-            $PSBoundParameters['Project'] = '.'
-        }
-        if (-not $PSBoundParameters.ContainsKey('Engine')) {
-            $PSBoundParameters['Engine'] = switch ($PSVersionTable.PSVersion.Major) {
-                5 {
-                    'powershell'
-                }
-                default {
-                    if ($PSVersionTable.PSVersion.PreReleaseLabel) {
-                        'pwsh-preview'
-                    }
-                    else {
-                        'pwsh'
-                    }
-                }
-            }
-        }
-        $parent = switch ($PSBoundParameters['Project']) {
-            '.' {
-                $PWD.Path
-            }
-            default {
-                $global:PSProfileConfig['_internal']['PSBuildPathMap'][$PSBoundParameters['Project']]
-            }
-        }
-        $command = "$($PSBoundParameters['Engine']) -NoProfile -C `"```$env:NoNugetRestore = "
-        if ($NoRestore) {
-            $command += "```$true;"
-        }
-        else {
-            $command += "```$false;"
-        }
-        $command += "Set-Location '$parent'; . .\build.ps1"
-        if ($PSBoundParameters.ContainsKey('Task')) {
-            $command += " -Task '$($PSBoundParameters['Task'] -join "','")'"
-        }
-        $command += '"'
-        Write-Verbose "Invoking expression: $command"
-        Invoke-Expression $command
-        if ($NoExit) {
-            Push-Location $parent
-            cln -Engine $PSBoundParameters['Engine'] -ImportModule
-            Pop-Location
         }
     }
 }
