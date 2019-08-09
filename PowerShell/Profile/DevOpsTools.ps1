@@ -2,7 +2,7 @@ if ($PSVersionTable.PSVersion.Major -lt 6 -or $IsWindows) {
     $env:PYTHONIOENCODING = "UTF-8"
 }
 
-function global:Test-ADCredential {
+function Test-ADCredential {
     [CmdletBinding()]
     Param(
         [parameter(Mandatory,Position = 0)]
@@ -26,7 +26,7 @@ function global:Test-ADCredential {
     $null -ne $domain.name
 }
 
-function global:Convert-Duration {
+function Convert-Duration {
     <#
     .SYNOPSIS
     Converts a TimeSpan or ISO8601 duration string to the desired output type.
@@ -220,7 +220,7 @@ function global:Convert-Duration {
     }
 }
 
-function global:Get-PublicIp {
+function Get-PublicIp {
     [CmdletBinding()]
     Param (
         [parameter(Position = 0,ValueFromPipeline,ValueFromPipelineByPropertyName)]
@@ -246,7 +246,7 @@ function global:Get-PublicIp {
     }
 }
 
-function global:Import-Splat {
+function Import-Splat {
     [CmdletBinding()]
     Param ()
     if ($null -eq (Get-Module EditorServicesCommandSuite* -ListAvailable)) {
@@ -267,7 +267,7 @@ function global:Import-Splat {
 
 Import-Splat
 
-function global:Set-ProcessPriority {
+function Set-ProcessPriority {
     [CmdletBinding()]
     Param ()
     DynamicParam {
@@ -304,7 +304,6 @@ function global:Set-ProcessPriority {
             AboveNormal = 32768
             Normal      = 32
             BelowNormal = 16384
-            Low         = 64
         }
     }
     Process {
@@ -332,7 +331,7 @@ Register-ArgumentCompleter -Native -CommandName dotnet -ScriptBlock {
 }
 
 if (Test-Path "C:\Program Files (x86)\Devolutions\Remote Desktop Manager\RemoteDesktopManager.PowerShellModule.psd1") {
-    function global:Open-RDPSession {
+    function Open-RDPSession {
         [CmdletBinding()]
         Param (
             [parameter(Mandatory = $true,Position = 0,ValueFromPipeline = $true,ParameterSetName = "Name")]
@@ -383,6 +382,79 @@ if (Test-Path "C:\Program Files (x86)\Devolutions\Remote Desktop Manager\RemoteD
             else {
                 Write-Verbose "Opening session ID '$Id'"
                 Open-RDMSession -ID $Id
+            }
+        }
+    }
+}
+
+function Show-Colors {
+    [CmdletBinding()]
+    Param (
+        [parameter(Position = 0)]
+        [ValidateSet('Grid','TrueColor','Default')]
+        $Style = 'Default'
+    )
+    Begin {
+        $colors = [enum]::GetValues([System.ConsoleColor])
+    }
+    Process {
+        switch ($Style) {
+            Grid {
+                foreach ($bgcolor in $colors) {
+                    Foreach ($fgcolor in $colors) {
+                        Write-Host "$fgcolor|"  -ForegroundColor $fgcolor -BackgroundColor $bgcolor -NoNewLine
+                    }
+                    Write-Host " on $bgcolor"
+                }
+            }
+            Default {
+                $max = ($colors | ForEach-Object { "$_ ".Length } | Measure-Object -Maximum).Maximum
+                foreach ( $color in $colors ) {
+                    Write-Host (" {0,2} {1,$max} " -f [int]$color,$color) -NoNewline
+                    Write-Host "$color" -Foreground $color
+                }
+            }
+            TrueColor {
+                # Borrowed from: https://raw.githubusercontent.com/Maximus5/ConEmu/master/Release/ConEmu/Addons/AnsiColors24bit.ps1
+                # In the current ConEmu version TrueColor is available
+                # only in the lower part of console buffer
+                $h = [Console]::WindowHeight
+                $w = [Console]::BufferWidth
+                $y = ([Console]::BufferHeight - $h)
+                # Clean console contents (this will clean TrueColor attributes)
+                Write-Host (([char]27) + "[32766S")
+                # Apply default powershell console attributes
+                Clear-Host
+                # Ensure that we are in the bottom of the buffer
+                try {
+                    [Console]::SetWindowPosition(0,$y)
+                    [Console]::SetCursorPosition(0,$y)
+                }
+                catch {
+                    Write-Host (([char]27) + "[32766H")
+                }
+                # Header
+                $title = " Printing 24bit gradient with ANSI sequences using powershell"
+                Write-Host (([char]27) + "[m" + $title)
+                # Run cycles. Use {ESC [ 48 ; 2 ; R ; G ; B m} to set background
+                # RGB color of the next printing character (space in this example)
+                $l = 0
+                $h -= 3
+                $w -= 2
+                while ($l -lt $h) {
+                    $b = [int]($l * 255 / $h)
+                    $c = 0
+                    Write-Host -NoNewLine (([char]27) + "[m ")
+                    while ($c -lt $w) {
+                        $r = [int]($c * 255 / $w)
+                        Write-Host -NoNewLine (([char]27) + "[48;2;" + $r + ";255;" + $b + "m ")
+                        $c++
+                    }
+                    Write-Host (([char]27) + "[m ")
+                    $l++
+                }
+                # Footer
+                Write-Host " Gradient done"
             }
         }
     }
