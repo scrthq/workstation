@@ -246,26 +246,21 @@ function Get-PublicIp {
     }
 }
 
-function Import-Splat {
-    [CmdletBinding()]
-    Param ()
-    if ($null -eq (Get-Module EditorServicesCommandSuite* -ListAvailable)) {
-        $installModuleSplat = @{
-            Name               = 'EditorServicesCommandSuite'
-            Repository         = 'PSGallery'
-            AllowClobber       = $true
-            Scope              = 'CurrentUser'
-            SkipPublisherCheck = $true
-        }
-        Install-Module @installModuleSplat
+if ($null -eq (Get-Module EditorServicesCommandSuite* -ListAvailable)) {
+    $installModuleSplat = @{
+        Name               = 'EditorServicesCommandSuite'
+        Repository         = 'PSGallery'
+        AllowClobber       = $true
+        Scope              = 'CurrentUser'
+        SkipPublisherCheck = $true
     }
-    if ($psEditor) {
-        Import-Module EditorServicesCommandSuite -ErrorAction SilentlyContinue -Force
-        Import-EditorCommand -Module EditorServicesCommandSuite
-    }
+    Install-Module @installModuleSplat
 }
-
-Import-Splat
+if ($psEditor) {
+    Import-Module EditorServicesCommandSuite -ErrorAction SilentlyContinue -Global -Force
+    Import-Module EditorServicesCommandSuite -ErrorAction SilentlyContinue -Global -Force # Twice because: https://github.com/SeeminglyScience/EditorServicesCommandSuite/issues/40
+    Import-EditorCommand -Module EditorServicesCommandSuite -Force
+}
 
 function Set-ProcessPriority {
     [CmdletBinding()]
