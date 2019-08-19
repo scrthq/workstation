@@ -31,3 +31,15 @@ function Unlock-Screen {
         }
     }
 }
+function Get-ADMemberOf {
+    [CmdletBinding()]
+    Param(
+        [Parameter(Position = 0,ValueFromPipeline,ValueFromPipelineByPropertyName)]
+        [Microsoft.ActiveDirectory.Management.ADUser]
+        [Alias('SamAccountName')]
+        $Identity = $env:USERNAME
+    )
+    Process {
+        (Get-ADUser $Identity -Properties MemberOf).MemberOf | Sort-Object
+    }
+}

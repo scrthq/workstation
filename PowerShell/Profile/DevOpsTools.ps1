@@ -454,3 +454,106 @@ function Show-Colors {
         }
     }
 }
+
+function Get-InstalledSoftware {
+    <#
+    .SYNOPSIS
+        Pull software details from registry on one or more computers
+    .DESCRIPTION
+        Pull software details from registry on one or more computers.  Details:
+            -This avoids the performance impact and potential danger of using the WMI Win32_Product class
+            -The computer name, display name, publisher, version, uninstall string and install date are included in the results
+            -Remote registry must be enabled on the computer(s) you query
+            -This command must run with privileges to query the registry of the remote system(s)
+            -Running this in a 32 bit PowerShell session on a 64 bit computer will limit your results to 32 bit software and result in double entries in the results
+    .PARAMETER ComputerName
+        One or more computers to pull software list from.
+    .PARAMETER DisplayName
+        If specified, return only software with DisplayNames that match this parameter (uses -match operator)
+    .PARAMETER Publisher
+        If specified, return only software with Publishers that match this parameter (uses -match operator)
+    .EXAMPLE
+        #Pull all software from c-is-ts-91, c-is-ts-92, format in a table
+            Get-InstalledSoftware c-is-ts-91, c-is-ts-92 | Format-Table -AutoSize
+    .EXAMPLE
+        #pull software with publisher matching microsoft and displayname matching lync from c-is-ts-91
+            "c-is-ts-91" | Get-InstalledSoftware -DisplayName lync -Publisher microsoft | Format-Table -AutoSize
+    .LINK
+        http://gallery.technet.microsoft.com/scriptcenter/Get-InstalledSoftware-Get-5607a465
+    .FUNCTIONALITY
+        Computers
+    #>
+    param (
+        [Parameter(Position = 0,ValueFromPipeline,ValueFromPipelineByPropertyName)]
+        [ValidateNotNullOrEmpty()]
+        [Alias('CN', '__SERVER', 'Server', 'Computer')]
+        [string[]]
+        $ComputerName = $env:computername,
+        [Parameter()]
+        [string]
+        $DisplayName = $null,
+        [Parameter()]
+        [string]
+        $Publisher = $null
+    )
+    Begin {
+        $UninstallKeys = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall",
+        "SOFTWARE\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall"
+    }
+    Process {
+        :computerLoop foreach ($computer in $computername) {
+            Try {
+                $reg = [microsoft.win32.registrykey]::OpenRemoteBaseKey('LocalMachine', $computer)
+            }
+            Catch {
+                Write-Error "Error:  Could not open LocalMachine hive on $computer`: $_"
+                Write-Verbose "Check Connectivity, permissions, and Remote Registry service for '$computer'"
+                Continue
+            }
+            foreach ($uninstallKey in $UninstallKeys) {
+                Try {
+                    $regkey = $null
+                    $regkey = $reg.OpenSubKey($UninstallKey)
+                    if ($regkey) {
+                        $subkeys = $regkey.GetSubKeyNames()
+                        foreach ($key in $subkeys) {
+                            $thisKey = $UninstallKey + "\\" + $key
+                            $thisSubKey = $null
+                            $thisSubKey = $reg.OpenSubKey($thisKey)
+                            if ($thisSubKey) {
+                                try {
+                                    $dispName = $thisSubKey.GetValue("DisplayName")
+                                    $pubName = $thisSubKey.GetValue("Publisher")
+                                    if ( $dispName -and
+                                        (-not $DisplayName -or $dispName -match $DisplayName ) -and
+                                        (-not $Publisher -or $pubName -match $Publisher )
+                                    ) {
+                                        New-Object PSObject -Property @{
+                                            ComputerName    = $computer
+                                            DisplayName     = $dispname
+                                            Publisher       = $pubName
+                                            Version         = $thisSubKey.GetValue("DisplayVersion")
+                                            UninstallString = $thisSubKey.GetValue("UninstallString")
+                                            InstallDate     = $thisSubKey.GetValue("InstallDate")
+                                        } | Select-Object ComputerName, DisplayName, Publisher, Version, UninstallString, InstallDate
+                                    }
+                                }
+                                Catch {
+                                    Write-Error "Unknown error: $_"
+                                    Continue
+                                }
+                            }
+                        }
+                    }
+                }
+                Catch {
+                    Write-Verbose "Could not open key '$uninstallkey' on computer '$computer': $_"
+                    if ($_ -match "Requested registry access is not allowed") {
+                        Write-Error "Registry access to $computer denied.  Check your permissions.  Details: $_"
+                        continue computerLoop
+                    }
+                }
+            }
+        }
+    }
+}
