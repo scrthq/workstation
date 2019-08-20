@@ -57,15 +57,19 @@ function Get-Tree {
             else {
                 $glyph
             }
-            $name = if ($Format -and $_.PSIsContainer) {
-                "/${esc}[33m{0}${esc}[0m" -f $_.Name
+            $fmtString = if ($Format -and $_.PSIsContainer) {
+                "/${esc}[33m{0}${esc}[0m"
             }
             elseif ($_.PSIsContainer) {
-                "${esc}[33m{0}${esc}[0m" -f $_.Name
+                "${esc}[33m{0}${esc}[0m"
+            }
+            elseif ($_.Extension -eq '.ps1') {
+                "${esc}[36m{0}${esc}[0m"
             }
             else {
-                "${esc}[37m{0}${esc}[0m" -f $_.Name
+                "${esc}[37m{0}${esc}[0m"
             }
+            $name = $fmtString -f $_.Name
             "{0} {1}" -f $front,$name
             if ($_.PSIsContainer -and $Indent -lt $Level) {
                 Get-Tree -Path $_.FullName -Level $Level -Indent ($Indent + 1) -Directory:$Directory -IsLast:$($i -ge $subs.Count) -Format:$Format
