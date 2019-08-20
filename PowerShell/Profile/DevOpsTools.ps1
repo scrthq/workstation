@@ -2,6 +2,78 @@ if ($PSVersionTable.PSVersion.Major -lt 6 -or $IsWindows) {
     $env:PYTHONIOENCODING = "UTF-8"
 }
 
+function Get-Tree {
+    [CmdletBinding()]
+    Param (
+        [Parameter(Position = 0)]
+        [String]
+        $Path = $PWD.Path,
+        [Parameter()]
+        [Alias('l')]
+        [int]
+        $Level = [int]::MaxValue,
+        [Parameter()]
+        [Alias('d')]
+        [Switch]
+        $Directory,
+        [Parameter()]
+        [Alias('f')]
+        [Switch]
+        $Format,
+        [Parameter(DontShow)]
+        [int]
+        $Indent = 0,
+        [Parameter(DontShow)]
+        [Switch]
+        $IsLast
+    )
+    Begin {
+        $mid = '├──'
+        $end = '└──'
+        $esc = [char]27
+    }
+    Process {
+        if (-not $Indent) {
+            "${esc}[94m{0}${esc}[0m" -f $Path
+        }
+        $subs = Get-ChildItem -Path $Path -Directory:$Directory
+        $i = 0
+        $subs | ForEach-Object {
+            $i++
+            $glyph = if ($i -ge $subs.Count) {
+                $end
+            }
+            else {
+                $mid
+            }
+            $front = if ($Indent) {
+                if ($IsLast) {
+                    ((' ' * 3 * $Indent) -replace '^\s','│') + $glyph
+                }
+                else {
+                    ((' ' * 3 * ($Indent - 1)) -replace '^\s','│') + '│  ' + $glyph
+                }
+            }
+            else {
+                $glyph
+            }
+            $name = if ($Format -and $_.PSIsContainer) {
+                "/${esc}[33m{0}${esc}[0m" -f $_.Name
+            }
+            elseif ($_.PSIsContainer) {
+                "${esc}[33m{0}${esc}[0m" -f $_.Name
+            }
+            else {
+                "${esc}[37m{0}${esc}[0m" -f $_.Name
+            }
+            "{0} {1}" -f $front,$name
+            if ($_.PSIsContainer -and $Indent -lt $Level) {
+                Get-Tree -Path $_.FullName -Level $Level -Indent ($Indent + 1) -Directory:$Directory -IsLast:$($i -ge $subs.Count) -Format:$Format
+            }
+        }
+    }
+}
+
 function Test-ADCredential {
     [CmdletBinding()]
     Param(
