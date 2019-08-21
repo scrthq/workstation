@@ -58,13 +58,25 @@ function Get-Tree {
                 $glyph
             }
             $fmtString = if ($Format -and $_.PSIsContainer) {
-                "/${esc}[33m{0}${esc}[0m"
+                "${esc}[33m/{0}${esc}[0m"
             }
             elseif ($_.PSIsContainer) {
                 "${esc}[33m{0}${esc}[0m"
             }
-            elseif ($_.Extension -eq '.ps1') {
-                "${esc}[36m{0}${esc}[0m"
+            elseif ($_.Extension -match '^\.ps') {
+                "${esc}[96m{0}${esc}[0m"
+            }
+            elseif ($_.Extension -match '^\.git') {
+                "${esc}[91m{0}${esc}[0m"
+            }
+            elseif ($_.Extension -match '^\.(md|markdown)') {
+                "${esc}[92m{0}${esc}[0m"
+            }
+            elseif ($_.Extension -match '^\.(yml|yaml)$') {
+                "${esc}[95m{0}${esc}[0m"
+            }
+            elseif ([String]::IsNullOrWhiteSpace($_.Extension)) {
+                "${esc}[93m{0}${esc}[0m"
             }
             else {
                 "${esc}[37m{0}${esc}[0m"
