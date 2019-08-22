@@ -310,3 +310,7 @@ if ($null -ne (Get-Module PSReadline)) {
         }
     }
 }
+if ($env:TERM_PROGRAM -eq 'vscode') {
+    # Necessary for the Terminal Input extension for VS Code so Shift+Enter works correctly.
+    Set-PSReadLineKeyHandler -Chord "alt+$([char]0x2665)" -Function AddLine
+}
